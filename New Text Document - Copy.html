@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mystery Doors</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;600&family=Raleway:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  /* ─── Design System ─────────────────────────────────────────── */
+  :root {
+    --gold:      #c9a84c;
+    --gold-lt:   #f0d080;
+    --gold-dk:   #8a6318;
+    --bg:        #0b0b12;
+    --surface:   #13131f;
+    --surface2:  #1c1c2e;
+    --border:    rgba(201,168,76,0.25);
+    --text:      #e8dfc8;
+    --text-dim:  rgba(232,223,200,0.55);
+    --win:       #4ecdc4;
+    --lose:      #e05a5a;
+    --radius:    12px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Raleway', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(201,168,76,0.12) 0%, transparent 60%),
+      repeating-linear-gradient(0deg,   transparent, transparent 39px, rgba(201,168,76,0.04) 39px, rgba(201,168,76,0.04) 40px),
+      repeating-linear-gradient(90deg,  transparent, transparent 39px, rgba(201,168,76,0.04) 39px, rgba(201,168,76,0.04) 40px);
+  }
+
+  /* ─── Header ────────────────────────────────────────────────── */
+  header {
+    text-align: center;
+    padding: 48px 20px 20px;
+  }
+  header h1 {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--gold-lt) 0%, var(--gold) 50%, var(--gold-dk) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 0.05em;
+    text-shadow: none;
+  }
+  header p {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    letter-spacing: 0.25em;
+    color: var(--text-dim);
+    margin-top: 6px;
+    text-transform: uppercase;
+  }
+
+  /* ─── Prize Banner ───────────────────────────────────────────── */
+  .prize-banner {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 32px;
+    margin: 16px auto 0;
+    display: flex;
+    gap: 40px;
+    align-items: center;
+    box-shadow: 0 0 40px rgba(201,168,76,0.08);
+  }
+  .prize-item { text-align: center; }
+  .prize-item .label {
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .prize-item .value {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 22px;
+    color: var(--gold-lt);
+    margin-top: 2px;
+  }
+  #total-won { transition: transform 0.3s; }
+  #total-won.bump { animation: bump 0.4s ease; }
+  @keyframes bump {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.25); color: var(--win); }
+    100% { transform: scale(1); }
+  }
+
+  /* ─── Main Stage ─────────────────────────────────────────────── */
+  main {
+    width: min(820px, 96vw);
+    margin: 32px auto 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 36px;
+  }
+
+  /* ─── Phase Labels ───────────────────────────────────────────── */
+  .phase-label {
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold);
+    opacity: 0.75;
+    text-align: center;
+  }
+
+  /* ─── Wheel Container ────────────────────────────────────────── */
+  .wheel-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+  }
+
+  .wheel-wrap {
+    position: relative;
+    width: 260px;
+    height: 260px;
+  }
+
+  /* Pointer arrow above wheel */
+  .wheel-pointer {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-top: 24px solid var(--gold);
+    filter: drop-shadow(0 0 6px var(--gold));
+    z-index: 10;
+  }
+
+  #wheel-canvas {
+    border-radius: 50%;
+    box-shadow: 0 0 0 4px var(--gold-dk), 0 0 40px rgba(201,168,76,0.3);
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  #wheel-canvas:hover { transform: scale(1.03); }
+  #wheel-canvas.spinning { cursor: not-allowed; }
+
+  .spin-btn {
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 14px 40px;
+    background: linear-gradient(135deg, var(--gold-dk) 0%, var(--gold) 50%, var(--gold-lt) 100%);
+    color: #1a1100;
+    border: none;
+    border-radius: 40px;
+    cursor: pointer;
+    font-weight: 700;
+    box-shadow: 0 4px 20px rgba(201,168,76,0.3);
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+  }
+  .spin-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(201,168,76,0.45); }
+  .spin-btn:active:not(:disabled) { transform: translateY(0); }
+  .spin-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ─── Room Section ───────────────────────────────────────────── */
+  .room-section {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+    animation: fadeUp 0.5s ease both;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .room-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(18px, 3vw, 26px);
+    color: var(--gold-lt);
+    text-align: center;
+  }
+  .room-subtitle {
+    font-family: 'Cinzel', serif;
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: -16px;
+    text-transform: uppercase;
+  }
+
+  /* ─── Doors Grid ─────────────────────────────────────────────── */
+  .doors-grid {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* Each door is a 3D flip card */
+  .door-card {
+    width: 130px;
+    height: 220px;
+    perspective: 700px;
+    cursor: pointer;
+  }
+  .door-card.disabled { cursor: not-allowed; pointer-events: none; }
+
+  .door-inner {
+    width: 100%; height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .door-card.open .door-inner { transform: rotateY(-160deg); }
+
+  .door-front, .door-back {
+    position: absolute;
+    inset: 0;
+    border-radius: 8px 8px 0 0;
+    backface-visibility: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Front face – the door */
+  .door-front {
+    background: linear-gradient(160deg, #2a1f0e 0%, #1a1208 100%);
+    border: 2px solid var(--gold-dk);
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.5), 0 6px 20px rgba(0,0,0,0.6);
+  }
+  /* Door panels */
+  .door-front::before, .door-front::after {
+    content: '';
+    position: absolute;
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 4px;
+    background: rgba(201,168,76,0.04);
+  }
+  .door-front::before { top: 14px; left: 10px; right: 10px; bottom: 50%; }
+  .door-front::after  { top: 52%; left: 10px; right: 10px; bottom: 14px; }
+
+  .door-number {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 28px;
+    color: var(--gold);
+    position: relative;
+    z-index: 1;
+  }
+  .door-knob {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 8px var(--gold);
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .door-base {
+    position: absolute;
+    bottom: -8px; left: -2px; right: -2px;
+    height: 10px;
+    background: linear-gradient(to right, var(--gold-dk), var(--gold), var(--gold-dk));
+    border-radius: 0 0 4px 4px;
+  }
+
+  /* Back face – reveal */
+  .door-back {
+    background: linear-gradient(160deg, #0e1f1a 0%, #091510 100%);
+    border: 2px solid var(--win);
+    box-shadow: inset 0 0 40px rgba(78,205,196,0.15), 0 6px 20px rgba(0,0,0,0.6);
+    transform: rotateY(180deg);
+    gap: 10px;
+  }
+  .door-back.lose-back {
+    background: linear-gradient(160deg, #1f0e0e 0%, #150909 100%);
+    border-color: var(--lose);
+    box-shadow: inset 0 0 40px rgba(224,90,90,0.1), 0 6px 20px rgba(0,0,0,0.6);
+  }
+
+  .result-icon { font-size: 46px; line-height: 1; }
+  .result-text {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-align: center;
+    padding: 0 8px;
+  }
+  .door-back .result-text { color: var(--win); }
+  .door-back.lose-back .result-text { color: var(--lose); }
+  .prize-amount {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 15px;
+    color: var(--gold-lt);
+    text-align: center;
+  }
+
+  /* ─── Outcome Banner ─────────────────────────────────────────── */
+  .outcome-banner {
+    width: 100%;
+    max-width: 500px;
+    padding: 24px 32px;
+    border-radius: var(--radius);
+    text-align: center;
+    animation: fadeUp 0.4s ease both;
+  }
+  .outcome-banner.win {
+    background: linear-gradient(135deg, rgba(78,205,196,0.12) 0%, rgba(78,205,196,0.04) 100%);
+    border: 1px solid rgba(78,205,196,0.35);
+    box-shadow: 0 0 40px rgba(78,205,196,0.1);
+  }
+  .outcome-banner.lose {
+    background: linear-gradient(135deg, rgba(224,90,90,0.12) 0%, rgba(224,90,90,0.04) 100%);
+    border: 1px solid rgba(224,90,90,0.3);
+  }
+  .outcome-banner h2 {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(20px, 3vw, 28px);
+  }
+  .outcome-banner.win  h2 { color: var(--win); }
+  .outcome-banner.lose h2 { color: var(--lose); }
+  .outcome-banner p {
+    font-size: 14px;
+    color: var(--text-dim);
+    margin-top: 8px;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.1em;
+  }
+
+  /* ─── Replay Button ──────────────────────────────────────────── */
+  .replay-btn {
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 12px 36px;
+    background: transparent;
+    color: var(--gold);
+    border: 1px solid var(--gold-dk);
+    border-radius: 40px;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+    margin-top: 4px;
+  }
+  .replay-btn:hover {
+    background: rgba(201,168,76,0.1);
+    box-shadow: 0 0 20px rgba(201,168,76,0.2);
+    transform: translateY(-2px);
+  }
+
+  /* ─── Prize Table ────────────────────────────────────────────── */
+  .prize-table {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 28px;
+    width: 100%;
+    max-width: 480px;
+  }
+  .prize-table h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    text-align: center;
+  }
+  .prize-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 13px;
+  }
+  .prize-row:last-child { border-bottom: none; }
+  .prize-row .room-tag {
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+  }
+  .prize-row .prize-val {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 14px;
+    color: var(--gold-lt);
+  }
+  .prize-row .odds {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+  }
+
+  /* ─── Utility ────────────────────────────────────────────────── */
+  .hidden { display: none !important; }
+
+  /* Particle burst */
+  .particle {
+    position: fixed;
+    pointer-events: none;
+    border-radius: 50%;
+    animation: particle-fly 0.9s ease forwards;
+    z-index: 999;
+  }
+  @keyframes particle-fly {
+    0%   { opacity: 1; transform: translate(0,0) scale(1); }
+    100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.2); }
+  }
+
+  /* Round history chips */
+  .history-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    max-width: 500px;
+  }
+  .history-chip {
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid;
+    text-transform: uppercase;
+  }
+  .history-chip.win  { border-color: rgba(78,205,196,0.4);  color: var(--win);  background: rgba(78,205,196,0.08); }
+  .history-chip.lose { border-color: rgba(224,90,90,0.4);  color: var(--lose); background: rgba(224,90,90,0.08); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Mystery Doors</h1>
+  <p>Spin · Choose · Win</p>
+</header>
+
+<!-- Running totals banner -->
+<div class="prize-banner">
+  <div class="prize-item">
+    <div class="label">Rounds Played</div>
+    <div class="value" id="rounds-played">0</div>
+  </div>
+  <div class="prize-item">
+    <div class="label">Total Winnings</div>
+    <div class="value" id="total-won">$0</div>
+  </div>
+  <div class="prize-item">
+    <div class="label">Best Win</div>
+    <div class="value" id="best-win">—</div>
+  </div>
+</div>
+
+<main>
+
+  <!-- ── PHASE 1: Spin the wheel ── -->
+  <div id="phase-spin" class="wheel-section">
+    <div class="phase-label">Step 1 — Spin the Wheel to Reveal Your Room</div>
+    <div class="wheel-wrap">
+      <div class="wheel-pointer"></div>
+      <canvas id="wheel-canvas" width="260" height="260"></canvas>
+    </div>
+    <button class="spin-btn" id="spin-btn" onclick="spinWheel()">Spin the Wheel</button>
+  </div>
+
+  <!-- ── PHASE 2: Choose a door ── -->
+  <div id="phase-room" class="room-section hidden">
+    <div class="phase-label">Step 2 — Choose a Door</div>
+    <div class="room-title" id="room-title"></div>
+    <div class="room-subtitle" id="room-subtitle"></div>
+    <div class="doors-grid" id="doors-grid"></div>
+  </div>
+
+  <!-- ── PHASE 3: Outcome ── -->
+  <div id="phase-outcome" class="hidden" style="display:flex;flex-direction:column;align-items:center;gap:16px">
+    <div class="outcome-banner" id="outcome-banner">
+      <h2 id="outcome-title"></h2>
+      <p id="outcome-msg"></p>
+    </div>
+    <button class="replay-btn" onclick="resetGame()">↻ Play Again</button>
+  </div>
+
+  <!-- Round history -->
+  <div class="history-row" id="history-row"></div>
+
+  <!-- Prize reference table -->
+  <div class="prize-table">
+    <h3>Prize Structure</h3>
+    <div class="prize-row">
+      <span class="room-tag">Room 1 · 2 Doors</span>
+      <span class="odds">1 in 2</span>
+      <span class="prize-val">$8,000</span>
+    </div>
+    <div class="prize-row">
+      <span class="room-tag">Room 2 · 3 Doors</span>
+      <span class="odds">1 in 3</span>
+      <span class="prize-val">$13,000</span>
+    </div>
+    <div class="prize-row">
+      <span class="room-tag">Room 3 · 4 Doors</span>
+      <span class="odds">1 in 4</span>
+      <span class="prize-val">$19,000</span>
+    </div>
+  </div>
+
+</main>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   GAME CONFIGURATION
+   Total pool = $40,000 split inversely with probability:
+     Room 1 (p=0.5) → $8,000   (expected value = $4,000)
+     Room 2 (p=0.33)→ $13,000  (expected value ≈ $4,333)
+     Room 3 (p=0.25)→ $19,000  (expected value = $4,750)
+   More doors = harder = bigger prize.
+═══════════════════════════════════════════════════════════════ */
+const ROOMS = [
+  { id: 1, label: 'Room I',   doors: 2, prize: 8000,  color: '#c9a84c', bg: '#2a1f08' },
+  { id: 2, label: 'Room II',  doors: 3, prize: 13000, color: '#4ecdc4', bg: '#081f1e' },
+  { id: 3, label: 'Room III', doors: 4, prize: 19000, color: '#c47adb', bg: '#1a0826' },
+];
+
+/* ─── State ───────────────────────────────────────────────────── */
+let totalWon     = 0;
+let roundsPlayed = 0;
+let bestWin      = 0;
+let spinning     = false;
+let currentRoom  = null;
+let winningDoor  = -1;
+let doorChosen   = false;
+let wheelAngle   = 0;   // tracks current rotation for smooth re-spins
+
+/* ─── Wheel Drawing ───────────────────────────────────────────── */
+const canvas  = document.getElementById('wheel-canvas');
+const ctx     = canvas.getContext('2d');
+const CX = canvas.width  / 2;
+const CY = canvas.height / 2;
+const R  = CX - 6;
+
+// Each room occupies equal 120° of the wheel
+const SLICES = ROOMS.map((r, i) => ({
+  ...r,
+  start: (i * 2 * Math.PI / 3),
+  end:   ((i + 1) * 2 * Math.PI / 3),
+}));
+
+function drawWheel(rotation) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  SLICES.forEach(s => {
+    const a1 = s.start + rotation;
+    const a2 = s.end   + rotation;
+
+    // Filled slice
+    ctx.beginPath();
+    ctx.moveTo(CX, CY);
+    ctx.arc(CX, CY, R, a1, a2);
+    ctx.closePath();
+    ctx.fillStyle = s.bg;
+    ctx.fill();
+
+    // Slice border
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Label – radial midpoint
+    const mid  = (a1 + a2) / 2;
+    const lx   = CX + Math.cos(mid) * R * 0.62;
+    const ly   = CY + Math.sin(mid) * R * 0.62;
+
+    ctx.save();
+    ctx.translate(lx, ly);
+    ctx.rotate(mid + Math.PI / 2);
+
+    ctx.font = 'bold 13px "Cinzel", serif';
+    ctx.fillStyle = s.color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(s.label, 0, -14);
+
+    ctx.font = '11px "Raleway", sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fillText(`${s.doors} Doors`, 0, 4);
+
+    const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+    ctx.font = 'bold 11px "Cinzel", serif';
+    ctx.fillStyle = '#f0d080';
+    ctx.fillText(fmt.format(s.prize), 0, 18);
+
+    ctx.restore();
+  });
+
+  // Center hub
+  ctx.beginPath();
+  ctx.arc(CX, CY, 20, 0, Math.PI * 2);
+  ctx.fillStyle = '#0b0b12';
+  ctx.fill();
+  ctx.strokeStyle = '#c9a84c';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Star icon in hub
+  ctx.font = '16px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('✦', CX, CY);
+}
+
+// Initial wheel render
+drawWheel(0);
+
+/* ─── Spin Logic ──────────────────────────────────────────────── */
+function spinWheel() {
+  if (spinning) return;
+  spinning = true;
+  document.getElementById('spin-btn').disabled = true;
+  canvas.classList.add('spinning');
+
+  /* Fair randomness: pick room first, then derive the target angle.
+     Each room covers 120°. We land the pointer (top = -90°) on the
+     chosen room's midpoint. */
+  const roomIndex  = Math.floor(Math.random() * 3); // 0, 1, or 2
+  currentRoom      = ROOMS[roomIndex];
+
+  // Mid-angle of the target slice (in wheel's own space)
+  const sliceMid   = ((roomIndex + 0.5) * 2 * Math.PI / 3);
+  // Pointer sits at -π/2 (top). We need sliceMid to end up there:
+  // finalRotation such that sliceMid + finalRotation ≡ -π/2 (mod 2π)
+  const targetAngle = (-Math.PI / 2) - sliceMid;
+
+  // Add several full spins for drama (5–8 rotations)
+  const extraSpins = (5 + Math.floor(Math.random() * 4)) * 2 * Math.PI;
+  const finalAngle = wheelAngle + extraSpins + ((targetAngle - wheelAngle) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+
+  const duration = 3200 + Math.random() * 600; // ms
+  const startTime = performance.now();
+  const startAngle = wheelAngle;
+
+  function easeOut(t) {
+    // Cubic ease-out for a satisfying deceleration
+    return 1 - Math.pow(1 - t, 3);
+  }
+
+  function frame(now) {
+    const elapsed = now - startTime;
+    const t = Math.min(elapsed / duration, 1);
+    wheelAngle = startAngle + (finalAngle - startAngle) * easeOut(t);
+    drawWheel(wheelAngle);
+
+    if (t < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      // Spin complete
+      wheelAngle = finalAngle;
+      spinning = false;
+      canvas.classList.remove('spinning');
+      showRoom();
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ─── Room Reveal ─────────────────────────────────────────────── */
+function showRoom() {
+  const room = currentRoom;
+
+  /* Pick one door at random to be the winner – true fairness */
+  winningDoor = Math.floor(Math.random() * room.doors);
+  doorChosen  = false;
+
+  document.getElementById('room-title').textContent   = `${room.label} — ${room.doors} Doors`;
+  document.getElementById('room-subtitle').textContent = `One door hides $${room.prize.toLocaleString()} · The rest are empty`;
+
+  // Build door cards
+  const grid = document.getElementById('doors-grid');
+  grid.innerHTML = '';
+
+  for (let i = 0; i < room.doors; i++) {
+    const isWinner = (i === winningDoor);
+
+    const card = document.createElement('div');
+    card.className = 'door-card';
+    card.dataset.index = i;
+    card.setAttribute('aria-label', `Door ${i + 1}`);
+
+    card.innerHTML = `
+      <div class="door-inner">
+        <div class="door-front">
+          <div class="door-number">${i + 1}</div>
+          <div class="door-knob"></div>
+          <div class="door-base"></div>
+        </div>
+        <div class="door-back ${isWinner ? '' : 'lose-back'}">
+          <div class="result-icon">${isWinner ? '💰' : '💨'}</div>
+          <div class="result-text">${isWinner ? 'Winner!' : 'Empty'}</div>
+          ${isWinner ? `<div class="prize-amount">$${room.prize.toLocaleString()}</div>` : ''}
+        </div>
+      </div>`;
+
+    card.addEventListener('click', () => chooseDoor(card, i, isWinner));
+    grid.appendChild(card);
+  }
+
+  // Show room phase
+  document.getElementById('phase-spin').classList.add('hidden');
+  document.getElementById('phase-room').classList.remove('hidden');
+}
+
+/* ─── Door Selection ──────────────────────────────────────────── */
+function chooseDoor(card, index, isWinner) {
+  if (doorChosen) return;
+  doorChosen = true;
+
+  // Disable all doors to prevent double-clicks
+  document.querySelectorAll('.door-card').forEach(c => c.classList.add('disabled'));
+
+  // Open chosen door first
+  card.classList.add('open');
+
+  // After a short delay, reveal all remaining doors
+  setTimeout(() => {
+    document.querySelectorAll('.door-card').forEach(c => {
+      if (!c.classList.contains('open')) c.classList.add('open');
+    });
+  }, 600);
+
+  // Show outcome after animation
+  setTimeout(() => showOutcome(isWinner), 1100);
+}
+
+/* ─── Outcome Display ─────────────────────────────────────────── */
+function showOutcome(isWinner) {
+  roundsPlayed++;
+  const prize = isWinner ? currentRoom.prize : 0;
+  totalWon += prize;
+  if (prize > bestWin) bestWin = prize;
+
+  // Update scoreboard
+  document.getElementById('rounds-played').textContent = roundsPlayed;
+  const wonEl = document.getElementById('total-won');
+  wonEl.textContent = `$${totalWon.toLocaleString()}`;
+  wonEl.classList.remove('bump');
+  void wonEl.offsetWidth; // force reflow to restart animation
+  if (isWinner) wonEl.classList.add('bump');
+
+  document.getElementById('best-win').textContent = bestWin > 0 ? `$${bestWin.toLocaleString()}` : '—';
+
+  // Outcome banner
+  const banner = document.getElementById('outcome-banner');
+  banner.className = `outcome-banner ${isWinner ? 'win' : 'lose'}`;
+  document.getElementById('outcome-title').textContent =
+    isWinner ? `You Won $${prize.toLocaleString()}!` : 'Better Luck Next Time';
+  document.getElementById('outcome-msg').textContent =
+    isWinner
+      ? `The winning door in ${currentRoom.label} was yours. Well played!`
+      : `The treasure was behind Door ${winningDoor + 1}. Try again!`;
+
+  document.getElementById('phase-outcome').classList.remove('hidden');
+  document.getElementById('phase-outcome').style.display = 'flex';
+
+  // Confetti burst on win
+  if (isWinner) burstParticles();
+
+  // Append round chip to history
+  addHistoryChip(isWinner, prize);
+}
+
+/* ─── Particle Burst ──────────────────────────────────────────── */
+function burstParticles() {
+  const colors = ['#c9a84c', '#f0d080', '#4ecdc4', '#ffffff', '#c47adb'];
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight / 2;
+
+  for (let i = 0; i < 48; i++) {
+    const el = document.createElement('div');
+    el.className = 'particle';
+    const size = 6 + Math.random() * 8;
+    const angle = Math.random() * 2 * Math.PI;
+    const dist  = 120 + Math.random() * 220;
+    el.style.cssText = `
+      width:${size}px; height:${size}px;
+      left:${cx}px; top:${cy}px;
+      background:${colors[Math.floor(Math.random() * colors.length)]};
+      --dx:${Math.cos(angle) * dist}px;
+      --dy:${Math.sin(angle) * dist}px;
+      animation-duration:${0.6 + Math.random() * 0.6}s;
+      animation-delay:${Math.random() * 0.2}s;
+    `;
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  }
+}
+
+/* ─── Round History Chip ──────────────────────────────────────── */
+function addHistoryChip(won, prize) {
+  const row = document.getElementById('history-row');
+  const chip = document.createElement('div');
+  chip.className = `history-chip ${won ? 'win' : 'lose'}`;
+  chip.textContent = won ? `+$${prize.toLocaleString()}` : 'Miss';
+  row.appendChild(chip);
+}
+
+/* ─── Reset / Replay ──────────────────────────────────────────── */
+function resetGame() {
+  // Hide result phase
+  document.getElementById('phase-outcome').classList.add('hidden');
+  document.getElementById('phase-room').classList.add('hidden');
+  document.getElementById('phase-room').classList.remove('hidden'); // force reset below
+  document.getElementById('phase-room').classList.add('hidden');
+
+  // Show spin phase again
+  document.getElementById('phase-spin').classList.remove('hidden');
+  document.getElementById('spin-btn').disabled = false;
+
+  currentRoom = null;
+  winningDoor = -1;
+  doorChosen  = false;
+}
+</script>
+</body>
+</html>
