@@ -4,122 +4,823 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>COSMIC ORB — Game of Chance</title>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
 <style>
-body {
-  background:#05050f;
-  color:#e8e8f5;
-  font-family:'Space Mono', monospace;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-}
+  :root {
+    --bg: #05050f;
+    --panel: #0b0b1e;
+    --orb-idle: #1a1a3e;
+    --gold: #f5c842;
+    --gold-dim: #a88520;
+    --cyan: #00ffe0;
+    --red: #ff3c5f;
+    --purple: #8b5cf6;
+    --win-color: #00ffe0;
+    --lose-color: #ff3c5f;
+    --text: #e8e8f5;
+    --sub: #6b6b99;
+  }
 
-.container { text-align:center; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
-.orb {
-  width:180px;height:180px;
-  border-radius:50%;
-  background:radial-gradient(circle,#8b5cf6,#1a1a3e);
-  display:flex;align-items:center;justify-content:center;
-  cursor:pointer;
-  margin:20px auto;
-  transition:0.2s;
-}
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
 
-.orb:hover { transform:scale(1.05); }
+  /* Starfield */
+  .stars {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .star {
+    position: absolute;
+    border-radius: 50%;
+    background: white;
+    animation: twinkle var(--d, 3s) ease-in-out infinite var(--del, 0s);
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.1; transform: scale(1); }
+    50% { opacity: 0.9; transform: scale(1.4); }
+  }
 
-.result { font-size:24px;margin-top:10px; }
+  /* Scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
 
-.stats { margin-top:20px; }
+  .container {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    padding: 24px;
+    max-width: 560px;
+    width: 100%;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+  }
+  .title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(2rem, 7vw, 3.2rem);
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, var(--gold) 0%, var(--cyan) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 18px rgba(245,200,66,0.4));
+  }
+  .subtitle {
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    color: var(--sub);
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+
+  /* Probability badge */
+  .prob-badge {
+    background: linear-gradient(135deg, rgba(0,255,224,0.1), rgba(139,92,246,0.1));
+    border: 1px solid rgba(0,255,224,0.25);
+    border-radius: 50px;
+    padding: 8px 24px;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    color: var(--cyan);
+    text-transform: uppercase;
+  }
+  .prob-badge span { color: var(--gold); font-weight: 700; }
+
+  /* ORB ARENA */
+  .orb-arena {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .orb-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(0,255,224,0.12);
+    animation: ring-pulse 4s ease-in-out infinite;
+  }
+  .orb-ring:nth-child(1) { width: 100%; height: 100%; animation-delay: 0s; }
+  .orb-ring:nth-child(2) { width: 118%; height: 118%; animation-delay: 0.7s; opacity: 0.6; }
+  .orb-ring:nth-child(3) { width: 136%; height: 136%; animation-delay: 1.4s; opacity: 0.3; }
+  @keyframes ring-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.3; }
+    50% { transform: scale(1.03); opacity: 0.7; }
+  }
+
+  .orb {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%,
+      rgba(120,100,255,0.8) 0%,
+      rgba(40,30,120,0.9) 40%,
+      rgba(10,8,40,1) 100%
+    );
+    box-shadow:
+      0 0 40px rgba(80,60,200,0.5),
+      0 0 80px rgba(80,60,200,0.2),
+      inset 0 0 60px rgba(0,0,0,0.5);
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  .orb::before {
+    content: '';
+    position: absolute;
+    top: 14%;
+    left: 22%;
+    width: 38%;
+    height: 24%;
+    background: radial-gradient(ellipse, rgba(255,255,255,0.25) 0%, transparent 70%);
+    border-radius: 50%;
+    transform: rotate(-25deg);
+  }
+
+  .orb:hover:not(.spinning):not(.disabled) {
+    transform: scale(1.06);
+    box-shadow:
+      0 0 60px rgba(80,60,200,0.7),
+      0 0 100px rgba(80,60,200,0.3),
+      inset 0 0 60px rgba(0,0,0,0.5);
+  }
+  .orb:active:not(.spinning):not(.disabled) { transform: scale(0.97); }
+
+  .orb-inner-text {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: rgba(255,255,255,0.7);
+    text-align: center;
+    z-index: 1;
+    text-transform: uppercase;
+    transition: opacity 0.3s;
+  }
+
+  /* Spinning state */
+  .orb.spinning {
+    animation: orb-spin 0.4s linear infinite;
+    cursor: not-allowed;
+  }
+  @keyframes orb-spin {
+    0% { box-shadow: 0 0 60px rgba(245,200,66,0.6), 0 0 120px rgba(245,200,66,0.2), inset 0 0 60px rgba(0,0,0,0.5); }
+    25% { box-shadow: 0 0 60px rgba(0,255,224,0.6), 0 0 120px rgba(0,255,224,0.2), inset 0 0 60px rgba(0,0,0,0.5); }
+    50% { box-shadow: 0 0 60px rgba(139,92,246,0.6), 0 0 120px rgba(139,92,246,0.2), inset 0 0 60px rgba(0,0,0,0.5); }
+    75% { box-shadow: 0 0 60px rgba(255,60,95,0.6), 0 0 120px rgba(255,60,95,0.2), inset 0 0 60px rgba(0,0,0,0.5); }
+    100% { box-shadow: 0 0 60px rgba(245,200,66,0.6), 0 0 120px rgba(245,200,66,0.2), inset 0 0 60px rgba(0,0,0,0.5); }
+  }
+
+  /* WIN state */
+  .orb.win {
+    background: radial-gradient(circle at 35% 30%,
+      rgba(0,255,200,0.9) 0%,
+      rgba(0,160,120,0.8) 40%,
+      rgba(0,40,30,1) 100%
+    );
+    animation: orb-win-pulse 0.5s ease-in-out 3;
+  }
+  @keyframes orb-win-pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 60px rgba(0,255,180,0.6), 0 0 120px rgba(0,255,180,0.3), inset 0 0 60px rgba(0,0,0,0.3); }
+    50% { transform: scale(1.1); box-shadow: 0 0 100px rgba(0,255,180,1), 0 0 200px rgba(0,255,180,0.5), inset 0 0 60px rgba(0,0,0,0.3); }
+  }
+
+  /* LOSE state */
+  .orb.lose {
+    background: radial-gradient(circle at 35% 30%,
+      rgba(255,80,100,0.9) 0%,
+      rgba(160,20,40,0.8) 40%,
+      rgba(40,0,10,1) 100%
+    );
+    animation: orb-lose-shake 0.1s linear 6;
+  }
+  @keyframes orb-lose-shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    75% { transform: translateX(8px); }
+  }
+
+  /* Sector wheel behind the orb */
+  .sector-display {
+    position: absolute;
+    width: 260px;
+    height: 260px;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .sector-display.visible { opacity: 1; }
+
+  /* Result panel */
+  .result-panel {
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .result-text {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1.4rem, 5vw, 2rem);
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .result-text.show { opacity: 1; transform: translateY(0); }
+  .result-text.win-txt { color: var(--win-color); filter: drop-shadow(0 0 12px var(--win-color)); }
+  .result-text.lose-txt { color: var(--lose-color); filter: drop-shadow(0 0 12px var(--lose-color)); }
+
+  .result-sub {
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    color: var(--sub);
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.4s ease 0.15s;
+  }
+  .result-sub.show { opacity: 1; }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    gap: 0;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    overflow: hidden;
+    width: 100%;
+  }
+  .stat {
+    flex: 1;
+    padding: 14px 8px;
+    text-align: center;
+    border-right: 1px solid rgba(255,255,255,0.08);
+    background: var(--panel);
+    transition: background 0.3s;
+  }
+  .stat:last-child { border-right: none; }
+  .stat-val {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .stat-val.wins { color: var(--win-color); }
+  .stat-val.losses { color: var(--lose-color); }
+  .stat-val.streak { color: var(--gold); }
+  .stat-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    color: var(--sub);
+    text-transform: uppercase;
+    margin-top: 5px;
+  }
+
+  /* Rules */
+  .rules-panel {
+    background: var(--panel);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 18px 22px;
+    width: 100%;
+  }
+  .rules-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .rules-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .rules-list li {
+    font-size: 0.72rem;
+    color: rgba(232,232,245,0.75);
+    line-height: 1.6;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .rules-list li .bullet {
+    color: var(--cyan);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* The sector key */
+  .sector-key {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .sector-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    color: var(--sub);
+  }
+  .sector-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Play button */
+  .play-btn {
+    background: none;
+    border: 2px solid var(--gold);
+    color: var(--gold);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    padding: 14px 40px;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .play-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--gold);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .play-btn:hover:not(:disabled) {
+    color: var(--bg);
+    box-shadow: 0 0 30px rgba(245,200,66,0.5);
+  }
+  .play-btn:hover:not(:disabled)::before { opacity: 1; }
+  .play-btn span { position: relative; z-index: 1; }
+  .play-btn:disabled { opacity: 0.3; cursor: not-allowed; border-color: var(--sub); color: var(--sub); }
+
+  /* Particle burst */
+  .particle {
+    position: fixed;
+    pointer-events: none;
+    border-radius: 50%;
+    z-index: 998;
+    animation: particle-fly var(--dur) ease-out forwards;
+  }
+  @keyframes particle-fly {
+    0% { transform: translate(0,0) scale(1); opacity: 1; }
+    100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+  }
+
+  /* Floating number */
+  .float-num {
+    position: fixed;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 900;
+    pointer-events: none;
+    z-index: 998;
+    animation: float-up 1.2s ease-out forwards;
+  }
+  @keyframes float-up {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-80px) scale(1.3); }
+  }
+
+  /* Prize Counter */
+  .prize-pool-panel {
+    background: var(--panel);
+    border: 1px solid rgba(245,200,66,0.25);
+    border-radius: 14px;
+    padding: 18px 22px;
+    width: 100%;
+    box-shadow: 0 0 20px rgba(245,200,66,0.06);
+  }
+  .prize-pool-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    text-align: center;
+  }
+  .prize-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(245,200,66,0.15);
+    padding-top: 12px;
+    margin-top: 8px;
+  }
+  .prize-total-label {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--sub);
+    text-transform: uppercase;
+  }
+  .prize-total-val {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: var(--gold);
+    filter: drop-shadow(0 0 8px rgba(245,200,66,0.5));
+  }
+  .prize-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .prize-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.7rem;
+  }
+  .prize-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .prize-label {
+    flex: 1;
+    color: rgba(232,232,245,0.75);
+    letter-spacing: 0.08em;
+  }
+  .prize-sectors {
+    color: var(--sub);
+    font-size: 0.62rem;
+    letter-spacing: 0.05em;
+  }
+  .prize-amount {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    min-width: 60px;
+    text-align: right;
+  }
+  .prize-earned-panel {
+    background: linear-gradient(135deg, rgba(0,255,224,0.06), rgba(139,92,246,0.06));
+    border: 1px solid rgba(0,255,224,0.15);
+    border-radius: 12px;
+    padding: 12px 18px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .prize-earned-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--sub);
+    text-transform: uppercase;
+  }
+  .prize-earned-val {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 900;
+    color: var(--cyan);
+    filter: drop-shadow(0 0 6px var(--cyan));
+    transition: color 0.3s;
+  }
+
+  /* Responsive */
+  @media (max-width: 400px) {
+    .orb { width: 160px; height: 160px; }
+    .orb-arena { width: 220px; height: 220px; }
+  }
 </style>
 </head>
-
 <body>
+
+<!-- Starfield -->
+<div class="stars" id="stars"></div>
+
 <div class="container">
-  <h1>Cosmic Orb</h1>
 
-  <div class="orb" onclick="spinOrb()">SPIN</div>
-
-  <div class="result" id="resultText"></div>
-
-  <div class="stats">
-    Wins: <span id="winsVal">0</span> |
-    Losses: <span id="lossesVal">0</span> |
-    Streak: <span id="streakVal">0</span> |
-    Money: $<span id="moneyVal">0</span>
+  <div class="header">
+    <div class="title">Cosmic Orb</div>
+    <div class="subtitle">A Game of Celestial Fortune</div>
   </div>
+
+  <div class="prob-badge">Win Probability: <span>7 in 10</span> &nbsp;·&nbsp; <span>70%</span> Chance to Win</div>
+
+  <!-- Orb Arena -->
+  <div class="orb-arena">
+    <div class="orb-ring"></div>
+    <div class="orb-ring"></div>
+    <div class="orb-ring"></div>
+    <div class="orb" id="orb" onclick="spinOrb()">
+      <div class="orb-inner-text" id="orbText">Touch<br>to Reveal</div>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="result-panel">
+    <div class="result-text" id="resultText"></div>
+    <div class="result-sub" id="resultSub"></div>
+  </div>
+
+  <!-- Sector Key -->
+  <div class="sector-key">
+    <div class="sector-item"><div class="sector-dot" style="background:#00ffe0"></div> Stellar (Win ×3)</div>
+    <div class="sector-item"><div class="sector-dot" style="background:#8b5cf6"></div> Cosmic (Win ×2)</div>
+    <div class="sector-item"><div class="sector-dot" style="background:#f5c842"></div> Nebula (Win ×1)</div>
+    <div class="sector-item"><div class="sector-dot" style="background:#ff3c5f"></div> Void (Lose)</div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-val wins" id="winsVal">0</div>
+      <div class="stat-label">Wins</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val losses" id="lossesVal">0</div>
+      <div class="stat-label">Losses</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val streak" id="streakVal">0</div>
+      <div class="stat-label">Streak</div>
+    </div>
+  </div>
+
+  <!-- Prize Pool -->
+  <div class="prize-pool-panel">
+    <div class="prize-pool-title">// Prize Pool — $10,000 Total</div>
+    <div class="prize-rows">
+      <div class="prize-row">
+        <div class="prize-dot" style="background:#00ffe0"></div>
+        <div class="prize-label">Stellar <span style="opacity:.5; font-size:.6rem">×3 mult</span></div>
+        <div class="prize-sectors" style="color:rgba(0,255,224,0.5)">2 sectors</div>
+        <div class="prize-amount" style="color:#00ffe0">$2,000</div>
+      </div>
+      <div class="prize-row">
+        <div class="prize-dot" style="background:#8b5cf6"></div>
+        <div class="prize-label">Cosmic <span style="opacity:.5; font-size:.6rem">×2 mult</span></div>
+        <div class="prize-sectors" style="color:rgba(139,92,246,0.5)">2 sectors</div>
+        <div class="prize-amount" style="color:#8b5cf6">$1,500</div>
+      </div>
+      <div class="prize-row">
+        <div class="prize-dot" style="background:#f5c842"></div>
+        <div class="prize-label">Nebula <span style="opacity:.5; font-size:.6rem">×1 mult</span></div>
+        <div class="prize-sectors" style="color:rgba(245,200,66,0.5)">3 sectors</div>
+        <div class="prize-amount" style="color:#f5c842">$1,000</div>
+      </div>
+      <div class="prize-row">
+        <div class="prize-dot" style="background:#ff3c5f"></div>
+        <div class="prize-label">Void</div>
+        <div class="prize-sectors" style="color:rgba(255,60,95,0.5)">3 sectors</div>
+        <div class="prize-amount" style="color:#ff3c5f">$0</div>
+      </div>
+    </div>
+    <div class="prize-total-row">
+      <div class="prize-total-label">All 10 Sectors Combined</div>
+      <div class="prize-total-val">$10,000</div>
+    </div>
+  </div>
+
+  <!-- Prizes Earned -->
+  <div class="prize-earned-panel">
+    <div class="prize-earned-label">Total Prizes Earned</div>
+    <div class="prize-earned-val" id="prizeEarned">$0</div>
+  </div>
+
+  <!-- Rules -->
+  <div class="rules-panel">
+    <div class="rules-title">// How to Play</div>
+    <ul class="rules-list">
+      <li><span class="bullet">▸</span> Touch the Cosmic Orb to reveal your fate — it holds 10 hidden sectors.</li>
+      <li><span class="bullet">▸</span> <strong style="color:var(--cyan)">7 sectors</strong> are winning zones: Stellar (×3), Cosmic (×2), or Nebula (×1).</li>
+      <li><span class="bullet">▸</span> <strong style="color:var(--red)">3 sectors</strong> are the Void — a losing outcome.</li>
+      <li><span class="bullet">▸</span> The orb pulses green on a win and red on a loss. Build your streak!</li>
+    </ul>
+  </div>
+
 </div>
 
 <script>
-// --- Game Setup ---
-const SECTORS = [
-  { label:'STELLAR', type:'win', mult:3, prob:2 },
-  { label:'COSMIC', type:'win', mult:2, prob:2 },
-  { label:'NEBULA', type:'win', mult:1, prob:3 },
-  { label:'VOID', type:'lose', mult:0, prob:3 }
-];
-
-// Build weighted pool (10 total)
-const POOL = [];
-SECTORS.forEach(s => {
-  for (let i=0;i<s.prob;i++) POOL.push(s);
-});
-
-// --- State ---
-let wins=0, losses=0, streak=0;
-let totalWinnings=0;
-
-const MAX_PRIZE = 10000;
-const BASE_PRIZE = 500;
-
-// --- Elements ---
-const resultText = document.getElementById("resultText");
-
-// --- Update UI ---
-function updateStats(){
-  document.getElementById("winsVal").textContent = wins;
-  document.getElementById("lossesVal").textContent = losses;
-  document.getElementById("streakVal").textContent = streak;
-  document.getElementById("moneyVal").textContent = totalWinnings;
-}
-
-// --- Game Logic ---
-function spinOrb(){
-  if(totalWinnings >= MAX_PRIZE){
-    resultText.textContent = "MAX $10,000 REACHED!";
-    return;
+  // --- Starfield ---
+  const starsEl = document.getElementById('stars');
+  for (let i = 0; i < 120; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 2.5 + 0.5;
+    s.style.cssText = `
+      width:${size}px; height:${size}px;
+      left:${Math.random()*100}%;
+      top:${Math.random()*100}%;
+      --d:${(Math.random()*4+2).toFixed(1)}s;
+      --del:-${(Math.random()*5).toFixed(1)}s;
+    `;
+    starsEl.appendChild(s);
   }
 
-  const result = POOL[Math.floor(Math.random()*POOL.length)];
+  // --- Game State ---
+  const SECTORS = [
+    { label: 'STELLAR', type: 'win', mult: 3, color: '#00ffe0', prob: 2, prize: 2000 },
+    { label: 'COSMIC',  type: 'win', mult: 2, color: '#8b5cf6', prob: 2, prize: 1500 },
+    { label: 'NEBULA',  type: 'win', mult: 1, color: '#f5c842', prob: 3, prize: 1000 },
+    { label: 'VOID',    type: 'lose', mult: 0, color: '#ff3c5f', prob: 3, prize: 0 },
+  ];
+  // Weighted pool: 10 total
+  const POOL = [];
+  SECTORS.forEach(s => { for(let i=0;i<s.prob;i++) POOL.push(s); });
+  // Wins: 7, Losses: 3
 
-  if(result.type === "win"){
-    wins++;
-    streak = streak >= 0 ? streak + 1 : 1;
+  let wins = 0, losses = 0, streak = 0, totalPrize = 0;
+  let isSpinning = false;
 
-    let prize = BASE_PRIZE * result.mult;
+  const orb = document.getElementById('orb');
+  const orbText = document.getElementById('orbText');
+  const resultText = document.getElementById('resultText');
+  const resultSub = document.getElementById('resultSub');
+  const winsVal = document.getElementById('winsVal');
+  const lossesVal = document.getElementById('lossesVal');
+  const streakVal = document.getElementById('streakVal');
+  const prizeEarned = document.getElementById('prizeEarned');
 
-    // Cap at $10,000
-    if(totalWinnings + prize > MAX_PRIZE){
-      prize = MAX_PRIZE - totalWinnings;
+  function updateStats() {
+    winsVal.textContent = wins;
+    lossesVal.textContent = losses;
+    streakVal.textContent = streak;
+    prizeEarned.textContent = '$' + totalPrize.toLocaleString();
+  }
+
+  function resetOrb() {
+    orb.className = 'orb';
+    orbText.style.opacity = '1';
+    orbText.textContent = 'Touch\nto Reveal';
+    resultText.className = 'result-text';
+    resultSub.className = 'result-sub';
+  }
+
+  function spawnParticles(x, y, color, count = 20) {
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      const size = Math.random() * 8 + 3;
+      const angle = Math.random() * 360;
+      const dist = Math.random() * 180 + 60;
+      const tx = Math.cos(angle * Math.PI/180) * dist;
+      const ty = Math.sin(angle * Math.PI/180) * dist;
+      const dur = (Math.random() * 0.6 + 0.5).toFixed(2);
+      p.style.cssText = `
+        width:${size}px; height:${size}px;
+        left:${x - size/2}px; top:${y - size/2}px;
+        background:${color};
+        --tx:${tx}px; --ty:${ty}px; --dur:${dur}s;
+      `;
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), parseFloat(dur)*1000 + 100);
     }
+  }
 
-    totalWinnings += prize;
+  function spawnFloatNum(x, y, text, color) {
+    const f = document.createElement('div');
+    f.className = 'float-num';
+    f.textContent = text;
+    f.style.cssText = `left:${x}px; top:${y}px; color:${color};`;
+    document.body.appendChild(f);
+    setTimeout(() => f.remove(), 1300);
+  }
 
-    resultText.textContent = `${result.label}! You win $${prize}`;
+  function spinOrb() {
+    if (isSpinning) return;
+    isSpinning = true;
+    orb.classList.add('spinning', 'disabled');
+    orbText.style.opacity = '0';
+    resultText.className = 'result-text';
+    resultSub.className = 'result-sub';
 
-  } else {
-    losses++;
-    streak = streak <= 0 ? streak - 1 : -1;
+    // Random spin duration 1.2 – 2.5s
+    const spinTime = 1200 + Math.random() * 1300;
 
-    resultText.textContent = "VOID — You lose!";
+    // Pick result
+    const result = POOL[Math.floor(Math.random() * POOL.length)];
+
+    setTimeout(() => {
+      orb.classList.remove('spinning');
+
+      // Apply result state
+      if (result.type === 'win') {
+        orb.classList.add('win');
+        wins++;
+        streak = streak >= 0 ? streak + 1 : 1;
+        totalPrize += result.prize;
+
+        resultText.textContent = `✦ ${result.label} ✦`;
+        resultText.className = 'result-text win-txt';
+
+        const msgs = ['Radiant!', 'The cosmos favors you!', 'Fortune shines!', 'Destiny aligns!'];
+        resultSub.textContent = msgs[Math.floor(Math.random()*msgs.length)] + `  (×${result.mult} · +$${result.prize.toLocaleString()})`;
+
+        // Particles & float
+        const rect = orb.getBoundingClientRect();
+        const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+        spawnParticles(cx, cy, result.color, 28);
+        spawnFloatNum(cx - 30, cy - 60, `+$${result.prize.toLocaleString()}`, result.color);
+      } else {
+        orb.classList.add('lose');
+        losses++;
+        streak = streak <= 0 ? streak - 1 : -1;
+
+        resultText.textContent = '✧ THE VOID ✧';
+        resultText.className = 'result-text lose-txt';
+
+        const msgs = ['The darkness claims you.', 'Lost to the cosmos...', 'The void swallows all.', 'Silence of space.'];
+        resultSub.textContent = msgs[Math.floor(Math.random()*msgs.length)];
+
+        const rect = orb.getBoundingClientRect();
+        const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+        spawnParticles(cx, cy, '#ff3c5f', 16);
+        spawnFloatNum(cx - 15, cy - 60, '−', '#ff3c5f');
+      }
+
+      // Show text
+      setTimeout(() => {
+        resultText.classList.add('show');
+        resultSub.classList.add('show');
+      }, 50);
+
+      orbText.textContent = result.label;
+      orbText.style.color = result.color;
+      orbText.style.opacity = '1';
+
+      updateStats();
+
+      // Re-enable after 2s
+      setTimeout(() => {
+        orb.classList.remove('disabled');
+        isSpinning = false;
+      }, 2000);
+
+      // Reset orb visuals after 3s
+      setTimeout(() => {
+        resetOrb();
+        orbText.style.color = '';
+        orbText.textContent = 'Touch\nto Reveal';
+      }, 3200);
+
+    }, spinTime);
   }
 
   updateStats();
-}
-
-updateStats();
 </script>
 </body>
 </html>
