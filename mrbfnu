@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COSMIC ORB — Game of Chance</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono&display=swap" rel="stylesheet">
+<style>
+body {
+  background:#05050f;
+  color:#e8e8f5;
+  font-family:'Space Mono', monospace;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+
+.container { text-align:center; }
+
+.orb {
+  width:180px;height:180px;
+  border-radius:50%;
+  background:radial-gradient(circle,#8b5cf6,#1a1a3e);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  margin:20px auto;
+  transition:0.2s;
+}
+
+.orb:hover { transform:scale(1.05); }
+
+.result { font-size:24px;margin-top:10px; }
+
+.stats { margin-top:20px; }
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h1>Cosmic Orb</h1>
+
+  <div class="orb" onclick="spinOrb()">SPIN</div>
+
+  <div class="result" id="resultText"></div>
+
+  <div class="stats">
+    Wins: <span id="winsVal">0</span> |
+    Losses: <span id="lossesVal">0</span> |
+    Streak: <span id="streakVal">0</span> |
+    Money: $<span id="moneyVal">0</span>
+  </div>
+</div>
+
+<script>
+// --- Game Setup ---
+const SECTORS = [
+  { label:'STELLAR', type:'win', mult:3, prob:2 },
+  { label:'COSMIC', type:'win', mult:2, prob:2 },
+  { label:'NEBULA', type:'win', mult:1, prob:3 },
+  { label:'VOID', type:'lose', mult:0, prob:3 }
+];
+
+// Build weighted pool (10 total)
+const POOL = [];
+SECTORS.forEach(s => {
+  for (let i=0;i<s.prob;i++) POOL.push(s);
+});
+
+// --- State ---
+let wins=0, losses=0, streak=0;
+let totalWinnings=0;
+
+const MAX_PRIZE = 10000;
+const BASE_PRIZE = 500;
+
+// --- Elements ---
+const resultText = document.getElementById("resultText");
+
+// --- Update UI ---
+function updateStats(){
+  document.getElementById("winsVal").textContent = wins;
+  document.getElementById("lossesVal").textContent = losses;
+  document.getElementById("streakVal").textContent = streak;
+  document.getElementById("moneyVal").textContent = totalWinnings;
+}
+
+// --- Game Logic ---
+function spinOrb(){
+  if(totalWinnings >= MAX_PRIZE){
+    resultText.textContent = "MAX $10,000 REACHED!";
+    return;
+  }
+
+  const result = POOL[Math.floor(Math.random()*POOL.length)];
+
+  if(result.type === "win"){
+    wins++;
+    streak = streak >= 0 ? streak + 1 : 1;
+
+    let prize = BASE_PRIZE * result.mult;
+
+    // Cap at $10,000
+    if(totalWinnings + prize > MAX_PRIZE){
+      prize = MAX_PRIZE - totalWinnings;
+    }
+
+    totalWinnings += prize;
+
+    resultText.textContent = `${result.label}! You win $${prize}`;
+
+  } else {
+    losses++;
+    streak = streak <= 0 ? streak - 1 : -1;
+
+    resultText.textContent = "VOID — You lose!";
+  }
+
+  updateStats();
+}
+
+updateStats();
+</script>
+</body>
+</html>
